@@ -1,0 +1,21 @@
+### Shorten a URL
+POST http://localhost/url/shorten
+Content-Type: application/json
+{
+  "originalUrl": "https://www.facebook.com/",
+  "expiresAt": null
+}
+
+
+### Redirect using the short code (replace 'abc123X' with actual shortCode from response above)
+GET http://localhost/url/107r76h34Lm
+### Redirect using the short code (replace 'abc123X' with actual shortCode from response above)
+GET http://localhost:5171/url/106dhqlgHkI
+### Test with a non-existent code (should return 404)
+GET http://localhost/notfound
+
+### 5. Get stats for the short URL
+GET http://localhost/url/stats/107r76h34Lm
+
+### 5. Get stats for the short URL
+GET http://localhost/health

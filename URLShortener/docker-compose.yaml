@@ -1,0 +1,239 @@
+name: urlshortener
+
+services:
+  postgres-0:
+    container_name: url_database_0
+    image: postgres:14.22-trixie
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 124578
+      POSTGRES_DB: url_shortener
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg0_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+
+  postgres-1:
+    container_name: url_database_1
+    image: postgres:14.22-trixie
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 124578
+      POSTGRES_DB: url_shortener
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg1_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+ 
+
+  postgres-2:
+    container_name: url_database_2
+    image: postgres:14.22-trixie
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 124578
+      POSTGRES_DB: url_shortener
+    ports:
+      - "5434:5432"
+    volumes:
+      - pg2_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-3:
+    container_name: url_database_3
+    image: postgres:14.22-trixie
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 124578
+      POSTGRES_DB: url_shortener
+    ports:
+      - "5435:5432"
+    volumes:
+      - pg3_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+   
+  redis:
+    container_name: url_redis
+    image: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq:
+    container_name: url_rabbitmq
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: 124578
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+     - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+
+  api-1:
+   build: .
+   container_name: url_api_1
+   environment:
+     - ASPNETCORE_ENVIRONMENT=Development
+     - ASPNETCORE_URLS=http://+:8080
+     - SNOWFLAKE_WORKER_ID=1
+     - REDIS_CONNECTION=redis:6379
+     - RABBITMQ_HOST=rabbitmq
+     - RABBITMQ_USER=user
+     - RABBITMQ_PASS=124578
+     - SHARD_0_CONNECTION=Host=postgres-0;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+     - SHARD_1_CONNECTION=Host=postgres-1;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+     - SHARD_2_CONNECTION=Host=postgres-2;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+     - SHARD_3_CONNECTION=Host=postgres-3;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+  
+   ports:
+     - "8080:8080"
+   depends_on:
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+    postgres-0:
+      condition: service_healthy
+    postgres-1:
+      condition: service_healthy
+    postgres-2:
+      condition: service_healthy
+    postgres-3:
+      condition: service_healthy
+    migrator:
+      condition: service_completed_successfully
+
+
+  api-2:
+   build: .
+   container_name: url_api_2
+   environment:
+     - ASPNETCORE_ENVIRONMENT=Development
+     - ASPNETCORE_URLS=http://+:8080
+     - SNOWFLAKE_WORKER_ID=2
+     - REDIS_CONNECTION=redis:6379
+     - RABBITMQ_HOST=rabbitmq
+     - RABBITMQ_USER=user
+     - RABBITMQ_PASS=124578
+     - SHARD_0_CONNECTION=Host=postgres-0;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+     - SHARD_1_CONNECTION=Host=postgres-1;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+     - SHARD_2_CONNECTION=Host=postgres-2;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+     - SHARD_3_CONNECTION=Host=postgres-3;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+     
+   ports:
+     - "8081:8080"
+   depends_on:
+    redis:
+      condition: service_healthy
+    rabbitmq:
+      condition: service_healthy
+    postgres-0:
+      condition: service_healthy
+    postgres-1:
+      condition: service_healthy
+    postgres-2:
+      condition: service_healthy
+    postgres-3:
+      condition: service_healthy
+    migrator:
+      condition: service_completed_successfully
+  
+  analytics-consumer:
+   build: .
+   container_name: url_analytics_consumer
+   environment:
+    - RUN_MODE=consumer
+    - ASPNETCORE_ENVIRONMENT=Development
+    - RABBITMQ_HOST=rabbitmq
+    - RABBITMQ_USER=user
+    - RABBITMQ_PASS=124578  
+    - REDIS_CONNECTION=redis:6379
+    - SHARD_0_CONNECTION=Host=postgres-0;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+    - SHARD_1_CONNECTION=Host=postgres-1;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+    - SHARD_2_CONNECTION=Host=postgres-2;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+    - SHARD_3_CONNECTION=Host=postgres-3;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+    - Sharding__VirtualShards=16
+    - Sharding__PhysicalShards=4
+   depends_on:
+    rabbitmq:
+      condition: service_healthy
+    postgres-0:
+      condition: service_healthy
+    postgres-1:
+      condition: service_healthy
+    postgres-2:
+      condition: service_healthy
+    postgres-3:
+      condition: service_healthy
+   restart: unless-stopped
+
+  nginx:
+    container_name: url_nginx
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api-1
+      - api-2
+
+  migrator:
+   build: .
+   container_name: url_migrator
+   environment:
+     - RUN_MODE=migrator
+     - SHARD_0_CONNECTION=Host=postgres-0;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+     - SHARD_1_CONNECTION=Host=postgres-1;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+     - SHARD_2_CONNECTION=Host=postgres-2;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+     - SHARD_3_CONNECTION=Host=postgres-3;Port=5432;Database=url_shortener;Username=postgres;Password=124578
+     - Sharding__PhysicalShards=${PHYSICAL_SHARDS}
+     - Sharding__VirtualShards=${VIRTUAL_SHARDS}
+   depends_on:
+     postgres-0:
+        condition: service_healthy
+     postgres-1:
+        condition: service_healthy
+     postgres-2:
+        condition: service_healthy
+     postgres-3:
+        condition: service_healthy
+   restart: "no" 
+volumes:
+  pg0_data:
+  pg1_data:
+  pg2_data:
+  pg3_data:
+  rabbitmq_data:
